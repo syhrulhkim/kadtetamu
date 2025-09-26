@@ -13,6 +13,7 @@ trait ResolvesDumpSource
      */
     protected $editorHrefs = [
         'atom' => 'atom://core/open/file?filename={file}&line={line}',
+        'cursor' => 'cursor://file/{file}:{line}',
         'emacs' => 'emacs://open?url=file://{file}&line={line}',
         'idea' => 'idea://open?file={file}&line={line}',
         'macvim' => 'mvim://open/?url=file://{file}&line={line}',
@@ -27,6 +28,16 @@ trait ResolvesDumpSource
         'vscode-remote' => 'vscode://vscode-remote/{file}:{line}',
         'vscodium' => 'vscodium://file/{file}:{line}',
         'xdebug' => 'xdebug://{file}@{line}',
+    ];
+
+    /**
+     * Files that require special trace handling and their levels.
+     *
+     * @var array<string, int>
+     */
+    protected static $adjustableTraces = [
+        'symfony/var-dumper/Resources/functions/dump.php' => 1,
+        'Illuminate/Collections/Traits/EnumeratesValues.php' => 4,
     ];
 
     /**
@@ -56,12 +67,21 @@ trait ResolvesDumpSource
         $sourceKey = null;
 
         foreach ($trace as $traceKey => $traceFile) {
-            if (isset($traceFile['file']) && str_ends_with(
-                $traceFile['file'],
-                'dump.php'
-            )) {
-                $sourceKey = $traceKey + 1;
+            if (! isset($traceFile['file'])) {
+                continue;
+            }
 
+            foreach (self::$adjustableTraces as $name => $key) {
+                if (str_ends_with(
+                    $traceFile['file'],
+                    str_replace('/', DIRECTORY_SEPARATOR, $name)
+                )) {
+                    $sourceKey = $traceKey + $key;
+                    break;
+                }
+            }
+
+            if (! is_null($sourceKey)) {
                 break;
             }
         }
@@ -99,7 +119,7 @@ trait ResolvesDumpSource
      */
     protected function isCompiledViewFile($file)
     {
-        return str_starts_with($file, $this->compiledViewPath);
+        return str_starts_with($file, $this->compiledViewPath) && str_ends_with($file, '.php');
     }
 
     /**
@@ -130,7 +150,7 @@ trait ResolvesDumpSource
     {
         try {
             $editor = config('app.editor');
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             // ..
         }
 
@@ -146,13 +166,11 @@ trait ResolvesDumpSource
             $file = str_replace($this->basePath, $basePath, $file);
         }
 
-        $href = str_replace(
+        return str_replace(
             ['{file}', '{line}'],
             [$file, is_null($line) ? 1 : $line],
             $href,
         );
-
-        return $href;
     }
 
     /**

@@ -4,7 +4,9 @@ namespace Laravel\Sanctum\Console\Commands;
 
 use Illuminate\Console\Command;
 use Laravel\Sanctum\Sanctum;
+use Symfony\Component\Console\Attribute\AsCommand;
 
+#[AsCommand(name: 'sanctum:prune-expired')]
 class PruneExpired extends Command
 {
     /**
@@ -19,7 +21,7 @@ class PruneExpired extends Command
      *
      * @var string
      */
-    protected $description = 'Prune tokens expired for more than specified number of hours.';
+    protected $description = 'Prune tokens expired for more than specified number of hours';
 
     /**
      * Execute the console command.

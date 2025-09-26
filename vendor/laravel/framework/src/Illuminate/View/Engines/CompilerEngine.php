@@ -2,9 +2,14 @@
 
 namespace Illuminate\View\Engines;
 
+use Illuminate\Database\RecordNotFoundException;
+use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Str;
 use Illuminate\View\Compilers\CompilerInterface;
 use Illuminate\View\ViewException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class CompilerEngine extends PhpEngine
@@ -37,7 +42,7 @@ class CompilerEngine extends PhpEngine
      * @param  \Illuminate\Filesystem\Filesystem|null  $files
      * @return void
      */
-    public function __construct(CompilerInterface $compiler, Filesystem $files = null)
+    public function __construct(CompilerInterface $compiler, ?Filesystem $files = null)
     {
         parent::__construct($files ?: new Filesystem);
 
@@ -62,12 +67,27 @@ class CompilerEngine extends PhpEngine
             $this->compiler->compile($path);
         }
 
-        $this->compiledOrNotExpired[$path] = true;
-
         // Once we have the path to the compiled file, we will evaluate the paths with
         // typical PHP just like any other templates. We also keep a stack of views
         // which have been rendered for right exception messages to be generated.
-        $results = $this->evaluatePath($this->compiler->getCompiledPath($path), $data);
+
+        try {
+            $results = $this->evaluatePath($this->compiler->getCompiledPath($path), $data);
+        } catch (ViewException $e) {
+            if (! Str::of($e->getMessage())->contains(['No such file or directory', 'File does not exist at path'])) {
+                throw $e;
+            }
+
+            if (! isset($this->compiledOrNotExpired[$path])) {
+                throw $e;
+            }
+
+            $this->compiler->compile($path);
+
+            $results = $this->evaluatePath($this->compiler->getCompiledPath($path), $data);
+        }
+
+        $this->compiledOrNotExpired[$path] = true;
 
         array_pop($this->lastCompiled);
 
@@ -85,6 +105,13 @@ class CompilerEngine extends PhpEngine
      */
     protected function handleViewException(Throwable $e, $obLevel)
     {
+        if ($e instanceof HttpException ||
+            $e instanceof HttpResponseException ||
+            $e instanceof RecordNotFoundException ||
+            $e instanceof RecordsNotFoundException) {
+            parent::handleViewException($e, $obLevel);
+        }
+
         $e = new ViewException($this->getMessage($e), 0, 1, $e->getFile(), $e->getLine(), $e);
 
         parent::handleViewException($e, $obLevel);

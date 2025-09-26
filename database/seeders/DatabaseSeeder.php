@@ -14,6 +14,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
+        // Create admin user
+        $this->call([
+            AdminUserSeeder::class,
+            CardTemplateSeeder::class,
+        ]);
+
+        // Uncomment if you want to create test users
         // \App\Models\User::factory(10)->create();
 
         // \App\Models\User::factory()->create([

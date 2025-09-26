@@ -39,7 +39,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
     /**
      * The container instance.
      *
-     * @var \Illuminate\Contracts\Container\Container
+     * @var \Illuminate\Contracts\Container\Container|null
      */
     protected $container;
 
@@ -59,7 +59,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
      * @param  \Illuminate\Contracts\Container\Container|null  $container
      * @return void
      */
-    public function __construct(ConnectionInterface $connection, $table, $minutes, Container $container = null)
+    public function __construct(ConnectionInterface $connection, $table, $minutes, ?Container $container = null)
     {
         $this->table = $table;
         $this->minutes = $minutes;
@@ -156,7 +156,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
     {
         try {
             return $this->getQuery()->insert(Arr::set($payload, 'id', $sessionId));
-        } catch (QueryException $e) {
+        } catch (QueryException) {
             $this->performUpdate($sessionId, $payload);
         }
     }
@@ -192,7 +192,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
 
         return tap($payload, function (&$payload) {
             $this->addUserInformation($payload)
-                 ->addRequestInformation($payload);
+                ->addRequestInformation($payload);
         });
     }
 
@@ -242,7 +242,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
     /**
      * Get the IP address for the current request.
      *
-     * @return string
+     * @return string|null
      */
     protected function ipAddress()
     {
@@ -288,7 +288,7 @@ class DatabaseSessionHandler implements ExistenceAwareInterface, SessionHandlerI
      */
     protected function getQuery()
     {
-        return $this->connection->table($this->table);
+        return $this->connection->table($this->table)->useWritePdo();
     }
 
     /**
